@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useEffect, useState } from 'react';
 import Router from 'next/router'
-import { api } from '../services/api';
+import { api } from '../services/apiClient';
 import { setCookie, parseCookies, destroyCookie } from 'nookies'
 
  type SignInCredentials = {
@@ -14,7 +14,8 @@ import { setCookie, parseCookies, destroyCookie } from 'nookies'
  }
 
  type AuthContextData = {
-   signIn(credentials: SignInCredentials): Promise<void>;
+   signIn: (credentials: SignInCredentials) => Promise<void>;
+   signOut: () =>  void;
    user: User;
    isAuthenticated: boolean;
  }
@@ -22,10 +23,13 @@ import { setCookie, parseCookies, destroyCookie } from 'nookies'
    children: ReactNode
  }
  export const AuthContext = createContext({} as AuthContextData)
+ let authChanel : BroadcastChannel
  
  export function signOut() {
   destroyCookie(undefined, 'nextauth.token')
   destroyCookie(undefined, 'nextauth.refreshToken')
+
+  authChanel.postMessage('signOut');
 
   Router.push('/')
  }
@@ -34,6 +38,18 @@ import { setCookie, parseCookies, destroyCookie } from 'nookies'
   
    const [user, setUser] = useState<User>();
    const isAuthenticated = !!user;
+
+   useEffect(() => {
+     authChanel = new BroadcastChannel('auth')
+     authChanel.onmessage = (message) => {
+       switch (message.data) {
+         case 'signOut':
+           signOut();
+           break;
+           default: break;
+       }
+     }
+   })
 
    useEffect(() => {
      const {'nextauth.token': token} = parseCookies()
@@ -79,16 +95,17 @@ import { setCookie, parseCookies, destroyCookie } from 'nookies'
         
         api.defaults.headers['Authorization'] = `Bearer ${token}`
        
-        Router.push('/Dashboard')
+      
+        authChanel.postMessage('signIn')
       } catch (error) {
         console.log(error)
       }
    }
 
    return (
-     <AuthContext.Provider value={{signIn, isAuthenticated, user}}>
+     <AuthContext.Provider value={{signIn, signOut, isAuthenticated, user}}>
      {children} 
      
      </AuthContext.Provider>
    )
- }
+ } 

@@ -8,7 +8,7 @@ export function withSSRGuest<p>(fn: GetServerSideProps<p>) {
     if(cookies['nextauth.token']) {
       return {
         redirect: {
-          destination: '/Dashboard',
+          destination: '/dashboard',
           permanent: false,
         }
       }
